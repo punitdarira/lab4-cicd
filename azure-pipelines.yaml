@@ -1,0 +1,42 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '5.x'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
+    - script: 'dotnet build --configuration Release'
+      displayName: 'Build project'
+
+- stage: Test
+  dependsOn: Build
+  jobs:
+  - job: Test
+    steps:
+    - script: 'dotnet test --configuration Release'
+      displayName: 'Run unit tests'
+
+- stage: Deploy
+  dependsOn: Test
+  jobs:
+  - job: Deploy
+    steps:
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: '<Your Azure Service Connection>'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az functionapp deployment source config-zip \
+            --resource-group <Your Resource Group> \
+            --name <Your Function App Name> \
+            --src $(System.DefaultWorkingDirectory)/<Your Build Artifact Path>
